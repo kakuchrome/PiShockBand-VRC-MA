@@ -13,6 +13,7 @@ USERNAME=config['API']['USERNAME']
 NAME=config['API']['APPNAME']
 pets=config['PETS']['PETS'].split()
 touchpoints=config['TOUCHPOINTS']['TOUCHPOINTS'].split()
+shockbones=config['SHOCKBONES']['SHOCKBONES'].split()
 
 
 
@@ -20,9 +21,10 @@ verbose=0
 funtype="2"
 fundelaymax="10"
 fundelaymin="0"
-funduration="15"
+funduration="5"
 funintensity="0"
 funtouchpointstate="False"
+funshockbonestate="False"
 boolsend='False'
 typesend="beep"
 
@@ -103,8 +105,8 @@ def set_touchpoint(address, *args):
     if cleantouchpointstate == "False":
         funtouchpointstate=cleantouchpointstate
 
-    #print(funtouchpoint)
-    #print(funtouchpointstate)
+    print(funtouchpoint)
+    print(funtouchpointstate)
 
 def set_TP_type(adress, *args):
     piTPtype=str({args})
@@ -119,7 +121,7 @@ def set_TP_type(adress, *args):
     if funTPtype == '2':
         typeTPsend="beep"
 
-    #print(funTPtype)
+    print(funTPtype)
 
 def set_TP_intensity(address, *args):
     piTPintensity=str({args})
@@ -130,7 +132,7 @@ def set_TP_intensity(address, *args):
     TPintensity=floatTPintensity*100
     funTPintensity=int(TPintensity)
 
-    #print(funTPintensity)
+    print(funTPintensity)
 
 def set_TP_duration(address, *args):
     piTPduration=str({args})
@@ -141,8 +143,65 @@ def set_TP_duration(address, *args):
     TPtime=floatTPduration*15
     funTPduration=int(TPtime)
 
-    #print(cleanTPduration)
-    #print(funTPduration)
+    print(cleanTPduration)
+    print(funTPduration)
+
+
+#ShockbonesFunctions
+def set_Shockbone(address, *args):
+    global funshockbone
+    global funshockbonestate
+    pishockbonestate=str({args})
+    cleanshockbonestate=''.join((x for x in pishockbonestate if x.isalpha()))
+    if cleanshockbonestate == "True":
+        pishockbone=str({address})
+        cleanshockbone=''.join((x for x in pishockbone if x.isdigit()))
+        shockbonetarget=int(cleanshockbone)
+        funshockbone=shockbones[shockbonetarget]
+        funshockbonestate=cleanshockbonestate
+    if cleanshockbonestate == "False":
+        funshockbonestate=cleanshockbonestate
+
+    print(funshockbone)
+    print(funshockbonestate)
+
+def set_SB_type(adress, *args):
+    piSBtype=str({args})
+    global funSBtype
+    global typeSBsend
+    global verbose
+    funSBtype= ''.join((x for x in piSBtype if x.isdigit()))
+    if funSBtype == '0':
+        typeSBsend="shock"
+    if funSBtype == '1':
+        typeSBsend="vibrate"
+    if funSBtype == '2':
+        typeSBsend="beep"
+
+    print(funSBtype)
+
+def set_SB_intensity(address, *args):
+    piSBintensity=str({args})
+    global funSBintensity
+    global verbose
+    tempSBintensity=str(piSBintensity.strip("{()},")[:4])
+    floatSBintensity=float(tempSBintensity)
+    SBintensity=floatSBintensity*100
+    funSBintensity=int(SBintensity)
+
+    print(funSBintensity)
+
+def set_SB_duration(address, *args):
+    piSBduration=str({args})
+    global funSBduration
+    global verbose
+    cleanSBduration=str(piSBduration.strip("{()},")[:4])
+    floatSBduration=float(cleanSBduration)
+    SBtime=floatSBduration*15
+    funSBduration=int(SBtime)
+
+    print(cleanSBduration)
+    print(funSBduration)
 
 dispatcher = Dispatcher()
 #dispatchers for pet functions
@@ -156,12 +215,25 @@ dispatcher.map("/avatar/parameters/pishock/TPType", set_TP_type)
 dispatcher.map("/avatar/parameters/pishock/TPIntensity", set_TP_intensity)
 dispatcher.map("/avatar/parameters/pishock/TPDuration", set_TP_duration)
 dispatcher.map("/avatar/parameters/pishock/Touchpoint_*", set_touchpoint)
+#dispatchers for shockbone functions
+dispatcher.map("/avatar/parameters/pishock/SBType", set_SB_type)
+dispatcher.map("/avatar/parameters/pishock/SBIntensity", set_SB_intensity)
+dispatcher.map("/avatar/parameters/pishock/SBDuration", set_SB_duration)
+dispatcher.map("/avatar/parameters/pishock/Shockbone_*", set_Shockbone)
+##physbone Parameter option prefix 
+##just prepare for logic , maybe prefer to use parameter driver to build shock logic
+#dispatcher.map("/avatar/parameters/*_IsGrabbed", tempA)
+#dispatcher.map("/avatar/parameters/*_IsPosed", tempB)
+#dispatcher.map("/avatar/parameters/*_Angle", tempC)
+#dispatcher.map("/avatar/parameters/*_Stretch", tempD)
+
+
 #verbose functions
 dispatcher.map("/avatar/parameters/pishock/Debug", set_verbose)
 
 
 ip = "127.0.0.1"
-port = 9001
+port = 9010
 
 
 async def loop():
@@ -190,21 +262,39 @@ async def loop():
         sendrequest=requests.post('https://do.pishock.com/api/apioperate', data=datajson, headers=headers)
 
         print(f"waiting {sleeptime} before next command")
-        #print(sendrequest)
-        #print (sendrequest.text)
+        print(sendrequest)
+        print (sendrequest.text)
 
         await asyncio.sleep(sleeptime)
 
     if funtouchpointstate == 'True':
-        sleeptime=funTPduration+1.7
+        #original
+        #sleeptime=funTPduration+1.7
+        
+        #prefer touchpoint as a vibration haptic device (reduce sleeptime)
+        sleeptime=funTPduration+0.2
         print(f"touch point sending {typeTPsend} at {funTPintensity} for {funTPduration} seconds")
         datajson = str({"Username":USERNAME,"Name":NAME,"Code":funtouchpoint,"Intensity":funTPintensity,"Duration":funTPduration,"Apikey":APIKEY,"Op":funTPtype})
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         sendrequest=requests.post('https://do.pishock.com/api/apioperate', data=datajson, headers=headers)
 
         print(f"waiting {sleeptime} before next command")
-        #print(sendrequest)
-        #print (sendrequest.text)
+        print(sendrequest)
+        print (sendrequest.text)
+
+        await asyncio.sleep(sleeptime)
+
+    #shockbone function
+    if funshockbonestate == 'True':
+        sleeptime=funSBduration+5.0
+        print(f"touch point sending {typeSBsend} at {funSBintensity} for {funSBduration} seconds")
+        datajson = str({"Username":USERNAME,"Name":NAME,"Code":funtouchpoint,"Intensity":funSBintensity,"Duration":funSBduration,"Apikey":APIKEY,"Op":funSBtype})
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+        sendrequest=requests.post('https://do.pishock.com/api/apioperate', data=datajson, headers=headers)
+
+        print(f"waiting {sleeptime} before next command")
+        print(sendrequest)
+        print (sendrequest.text)
 
         await asyncio.sleep(sleeptime)
 
